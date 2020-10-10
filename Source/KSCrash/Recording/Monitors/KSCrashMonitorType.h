@@ -42,35 +42,36 @@ extern "C" {
 typedef enum
 {
     /* Captures and reports Mach exceptions. */
-    KSCrashMonitorTypeMachException      = 0x01,
+    KSCrashMonitorTypeMachException      = 0x01,    // mach异常
     
     /* Captures and reports POSIX signals. */
-    KSCrashMonitorTypeSignal             = 0x02,
+    KSCrashMonitorTypeSignal             = 0x02,    // POSIX异常信号
     
     /* Captures and reports C++ exceptions.
      * Note: This will slightly slow down exception processing.
      */
-    KSCrashMonitorTypeCPPException       = 0x04,
+    KSCrashMonitorTypeCPPException       = 0x04,    // C++异常
     
     /* Captures and reports NSExceptions. */
-    KSCrashMonitorTypeNSException        = 0x08,
+    KSCrashMonitorTypeNSException        = 0x08,    // NSExceptions异常
     
     /* Detects and reports a deadlock in the main thread. */
-    KSCrashMonitorTypeMainThreadDeadlock = 0x10,
+    KSCrashMonitorTypeMainThreadDeadlock = 0x10,    // 主线程假死
     
     /* Accepts and reports user-generated exceptions. */
-    KSCrashMonitorTypeUserReported       = 0x20,
+    KSCrashMonitorTypeUserReported       = 0x20,    // 用户退出
     
     /* Keeps track of and injects system information. */
-    KSCrashMonitorTypeSystem             = 0x40,
+    KSCrashMonitorTypeSystem             = 0x40,    // 跟踪并注入系统信息 ？
     
     /* Keeps track of and injects application state. */
-    KSCrashMonitorTypeApplicationState   = 0x80,
+    KSCrashMonitorTypeApplicationState   = 0x80,    // 跟踪并注入应用程序信息 ？
     
     /* Keeps track of zombies, and injects the last zombie NSException. */
-    KSCrashMonitorTypeZombie             = 0x100,
+    KSCrashMonitorTypeZombie             = 0x100,   // 跟踪僵尸对象并注入僵尸异常捕获
 } KSCrashMonitorType;
 
+// 全部type
 #define KSCrashMonitorTypeAll              \
 (                                          \
     KSCrashMonitorTypeMachException      | \
@@ -84,11 +85,13 @@ typedef enum
     KSCrashMonitorTypeZombie               \
 )
 
+// 假死检测 - 实验阶段
 #define KSCrashMonitorTypeExperimental     \
 (                                          \
     KSCrashMonitorTypeMainThreadDeadlock   \
 )
 
+// mach异常，异常信号，c++异常，OC异常 - debug环境不可用
 #define KSCrashMonitorTypeDebuggerUnsafe   \
 (                                          \
     KSCrashMonitorTypeMachException      | \
@@ -103,6 +106,7 @@ typedef enum
     KSCrashMonitorTypeSignal               \
 )
 
+// 僵尸对象异常，可选选项
 #define KSCrashMonitorTypeOptional         \
 (                                          \
     KSCrashMonitorTypeZombie               \
@@ -110,24 +114,30 @@ typedef enum
     
 #define KSCrashMonitorTypeAsyncUnsafe (KSCrashMonitorTypeAll & (~KSCrashMonitorTypeAsyncSafe))
 
-/** Monitors that are safe to enable in a debugger. */
+/** Monitors that are safe to enable in a debugger. 可在调试时安全使用 */
 #define KSCrashMonitorTypeDebuggerSafe (KSCrashMonitorTypeAll & (~KSCrashMonitorTypeDebuggerUnsafe))
 
 /** Monitors that are safe to use in a production environment.
  * All other monitors should be considered experimental.
+ *
+ * 生产环境可安全使用， 去除主线程假死检测
  */
 #define KSCrashMonitorTypeProductionSafe (KSCrashMonitorTypeAll & (~KSCrashMonitorTypeExperimental))
 
-/** Production safe monitors, minus the optional ones. */
+/** Production safe monitors, minus the optional ones. 生产环境安全，去除主线程假死检测和僵尸异常检测*/
 #define KSCrashMonitorTypeProductionSafeMinimal (KSCrashMonitorTypeProductionSafe & (~KSCrashMonitorTypeOptional))
 
 /** Monitors that are required for proper operation.
  * These add essential information to the reports, but do not trigger reporting.
+ *
+ * 向报表中添加基本信息，但不会触发上报
  */
 #define KSCrashMonitorTypeRequired (KSCrashMonitorTypeSystem | KSCrashMonitorTypeApplicationState)
 
 /** Effectively disables automatica reporting. The only way to generate a report
  * in this mode is by manually calling kscrash_reportUserException().
+ *
+ * 禁用自动上报，在这种模式下生成报告的唯一方法是手动调用kscrash_reportUserException()。
  */
 #define KSCrashMonitorTypeManual (KSCrashMonitorTypeRequired | KSCrashMonitorTypeUserReported)
 

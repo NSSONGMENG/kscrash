@@ -41,9 +41,9 @@ typedef enum
 
 typedef enum
 {
-    KSCDeleteNever,
-    KSCDeleteOnSucess,
-    KSCDeleteAlways
+    KSCDeleteNever,     // 无操作，可手动自行删除
+    KSCDeleteOnSucess,  // 日志发送成功后删除
+    KSCDeleteAlways     // 发送后一律删除，不关心成功与否
 } KSCDeleteBehavior;
 
 /**
@@ -63,6 +63,8 @@ typedef enum
  * NSString, NSDate, and NSNumber for values.
  *
  * Default: nil
+ *
+ * 设置伴随崩溃日志上报的信息，默认为nil
  */
 @property(atomic,readwrite,retain) NSDictionary* userInfo;
 
@@ -74,6 +76,8 @@ typedef enum
  * - Use KSCDeleteOnSuccess for all other situations.
  *
  * Default: KSCDeleteAlways
+ *
+ * 日志发送后执行的操作，枚举值，默认无脑删日志
  */
 @property(nonatomic,readwrite,assign) KSCDeleteBehavior deleteBehaviorAfterSendAll;
 
@@ -82,6 +86,8 @@ typedef enum
  *       fail to install.
  *
  * Default: KSCrashMonitorTypeProductionSafeMinimal
+ *
+ * 异常探测类型，枚举值，默认包含去除主线程假死探测和僵尸对象异常检测
  */
 @property(nonatomic,readwrite,assign) KSCrashMonitorType monitoring;
 
@@ -104,6 +110,9 @@ typedef enum
  * 0 = Disabled.
  *
  * Default: 0
+ *
+ * 主线程假死检测看门狗机制启动限时，默认为0，即不启用
+ *
  */
 @property(nonatomic,readwrite,assign) double deadlockWatchdogInterval;
 
@@ -114,6 +123,8 @@ typedef enum
  * Enable at your own risk.
  *
  * Default: NO
+ *
+ * 设置为YES，则尝试获取每个运行线程对应队列的名字，在调用ksthread_getQueueName()时可能产生崩溃
  */
 @property(nonatomic,readwrite,assign) BOOL searchQueueNames;
 
@@ -123,6 +134,9 @@ typedef enum
  * their contents.
  *
  * Default: YES
+ *
+ * 设置为YES，则在crash时进行内存内省
+ * 栈指针附近的任何OC对象或C字符串，以及寄存器引用或异常都会记录在日志中
  */
 @property(nonatomic,readwrite,assign) BOOL introspectMemory;
 
@@ -130,6 +144,8 @@ typedef enum
  * accesses after deallocation.
  *
  * Default: NO
+ *
+ * 监控所有OC/swift对象释放，并跟踪释放之后的任何访问
  */
 @property(nonatomic,readwrite,assign) BOOL catchZombies;
 
@@ -138,12 +154,16 @@ typedef enum
  * This can be useful for information security concerns.
  *
  * Default: nil
+ *
+ * 不被内省的类列表，当遇到列表中的类时只会记录类名
  */
 @property(nonatomic,readwrite,retain) NSArray* doNotIntrospectClasses;
 
 /** The maximum number of reports allowed on disk before old ones get deleted.
  *
  * Default: 5
+ *
+ * 旧日志删除前，磁盘上允许存在的最大日志数
  */
 @property(nonatomic,readwrite,assign) int maxReportCount;
 
@@ -153,6 +173,9 @@ typedef enum
  *
  * Note: If you use an installation, it will automatically set this property.
  *       Do not modify it in such a case.
+ *
+ * 发送报告的接收器，若不设置则不会上报日志
+ * 使用installation时会自动设置，这种情况下不要再修改该条目
  */
 @property(nonatomic,readwrite,retain) id<KSCrashReportFilter> sink;
 
@@ -164,57 +187,107 @@ typedef enum
  *
  * Note: If you use an installation, it will automatically set this property.
  *       Do not modify it in such a case.
+ *
+ * 崩溃报告期间调用的C函数，给被调用者一个向报告添加内容的机会
+ * 只能调用异步安全的函数，不能调用任何oc方法
+ * 使用installation时会自动设置，这种情况下不要再修改该条目
  */
 @property(nonatomic,readwrite,assign) KSReportWriteCallback onCrash;
 
 /** Add a copy of KSCrash's console log messages to the crash report.
+ *
+ * 将KSCrash的控制台日志添加到崩溃日志
  */
 @property(nonatomic,readwrite,assign) BOOL addConsoleLogToReport;
 
 /** Print the previous app run log to the console when installing KSCrash.
  *  This is primarily for debugging purposes.
+ *
+ * 在安装KSCrash时，将之前的应用程序运行日志打印到控制台。主要是为了调试目的。
  */
 @property(nonatomic,readwrite,assign) BOOL printPreviousLog;
 
-/** Which languages to demangle when getting stack traces (default KSCrashDemangleLanguageAll) */
+/**
+ * Which languages to demangle when getting stack traces (default KSCrashDemangleLanguageAll)
+ *
+ * 跟踪堆栈时，哪些语言需要回溯，默认所有
+ */
 @property(nonatomic,readwrite,assign) KSCrashDemangleLanguage demangleLanguages;
 
-/** Exposes the uncaughtExceptionHandler if set from KSCrash. Is nil if debugger is running. **/
+/** Exposes the uncaughtExceptionHandler if set from KSCrash. Is nil if debugger is running.
+ *
+ * 未知异常
+ * 若从KSCrash设置，则公开uncaughtExceptionHandler，debug模式下为nil
+ */
 @property (nonatomic, assign) NSUncaughtExceptionHandler *uncaughtExceptionHandler;
 
-/** Exposes the currentSnapshotUserReportedExceptionHandler if set from KSCrash. Is nil if debugger is running. **/
+/** Exposes the currentSnapshotUserReportedExceptionHandler if set from KSCrash. Is nil if debugger is running.
+ *
+ * 当前上报的异常快照
+ * 若从KSCrash设置，则公开currentSnapshotUserReportedExceptionHandler，debug模式下为nil
+ */
 @property (nonatomic, assign) NSUncaughtExceptionHandler *currentSnapshotUserReportedExceptionHandler;
 
 #pragma mark - Information -
 
-/** Total active time elapsed since the last crash. */
+/** Total active time elapsed since the last crash.
+ *
+ * 上次崩溃后的活动时间
+ */
 @property(nonatomic,readonly,assign) NSTimeInterval activeDurationSinceLastCrash;
 
-/** Total time backgrounded elapsed since the last crash. */
+/** Total time backgrounded elapsed since the last crash.
+ *
+ * 上次崩溃之后后台运行的总时间
+ */
 @property(nonatomic,readonly,assign) NSTimeInterval backgroundDurationSinceLastCrash;
 
-/** Number of app launches since the last crash. */
+/** Number of app launches since the last crash.
+ *
+ * 上次崩溃后app冷启次数
+ */
 @property(nonatomic,readonly,assign) int launchesSinceLastCrash;
 
-/** Number of sessions (launch, resume from suspend) since last crash. */
+/** Number of sessions (launch, resume from suspend) since last crash.
+ *
+ * 上次崩溃后会话次数（冷启 + 挂起->恢复）
+ */
 @property(nonatomic,readonly,assign) int sessionsSinceLastCrash;
 
-/** Total active time elapsed since launch. */
+/** Total active time elapsed since launch.
+ *
+ * 启动后总的活动时间
+ */
 @property(nonatomic,readonly,assign) NSTimeInterval activeDurationSinceLaunch;
 
-/** Total time backgrounded elapsed since launch. */
+/** Total time backgrounded elapsed since launch.
+ *
+ * 启动后总的后台运行时间
+ */
 @property(nonatomic,readonly,assign) NSTimeInterval backgroundDurationSinceLaunch;
 
-/** Number of sessions (launch, resume from suspend) since app launch. */
+/** Number of sessions (launch, resume from suspend) since app launch.
+ *
+ * 启动后总的会话数（冷启 + 挂起->恢复）
+ */
 @property(nonatomic,readonly,assign) int sessionsSinceLaunch;
 
-/** If true, the application crashed on the previous launch. */
+/** If true, the application crashed on the previous launch.
+ *
+ * 若为true，则程序在上次启动时崩溃 ？？？
+ */
 @property(nonatomic,readonly,assign) BOOL crashedLastLaunch;
 
-/** The total number of unsent reports. Note: This is an expensive operation. */
+/** The total number of unsent reports. Note: This is an expensive operation.
+ *
+ * 未发送日志的数量
+ */
 @property(nonatomic,readonly,assign) int reportCount;
 
-/** Information about the operating system and environment */
+/** Information about the operating system and environment
+ *
+ * 系统和环境信息
+ */
 @property(nonatomic,readonly,strong) NSDictionary* systemInfo;
 
 #pragma mark - API -
@@ -226,6 +299,8 @@ typedef enum
 /** Install the crash reporter.
  * The reporter will record crashes, but will not send any crash reports unless
  * sink is set.
+ *
+ * 安装crash报告系统
  *
  * @return YES if the reporter successfully installed.
  */
@@ -270,6 +345,8 @@ typedef enum
 /** Report a custom, user defined exception.
  * This can be useful when dealing with scripting languages.
  *
+ * 上报用户自定义的异常，对处理脚本语言异常比较有用
+ *
  * If terminateProgram is true, all sentries will be uninstalled and the application will
  * terminate with an abort().
  *
@@ -300,6 +377,8 @@ typedef enum
  * by updating pointers in the indirect symbol table, which is located in the __LINKEDIT segment.
  * It supports getting a true stackstace even in dynamically linked libraries.
  * Also allows a user to override original __cxa_throw  with his implementation.
+ *
+ * 实现功能
  */
 - (void) enableSwapOfCxaThrow;
 
